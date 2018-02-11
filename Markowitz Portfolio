@@ -1,0 +1,217 @@
+import numpy as np
+import pandas as pd
+
+
+def covariance(x,y):
+    ''' returns the covariance of two lists of values.
+    '''    
+    assert len(x)==len(y)
+    miux=mean(x)
+    miuy=mean(y)
+    sum=0
+    index=0
+    for i in x:
+        sum = sum + (i-miux) * (y[index]-miuy)
+        index+=1
+    return sum/len(x)
+  
+
+# 1.
+def calc_portfolio_return(e, w):
+    ''' calculates and returns the portfolio return (as a float) for a portfolio of n >= 2 assets.
+       e is a matrix of expected returns for the assets
+       w is a matrix of portfolio weights of the assets, which sums to 1.
+    '''
+    return float(np.dot(e, w.T))
+
+# 2.
+def calc_portfolio_stdev(v, w):
+    ''' calculates and returns the portfolio standard deviation (as a float) for a portfolio of n >= 2 assets. 
+    v is a matrix of covariances among the assets.
+    w is a matrix of portfolio weights of the assets, which sums to 1.
+    '''
+    return float(w*v*w.T)**0.5
+    
+# 3.
+def calc_global_min_variance_portfolio(v):
+    '''returns the portfolio weights corresponding to the global minimum variance portfolio. 
+       v is the matrix of covariances among the assets.
+    '''
+    w = np.ones((1,len(v)))*v.I
+    return w / w.sum()
+
+# 4.
+def calc_min_variance_portfolio(e, v, r):
+    '''finds and returns the portfolio weights corresponding to the minimum variance portfolio for the required rate of return r. 
+    e is a matrix of expected returns for the assets
+    v is a matrix of covariances among the assets.
+    r is the required rate of return.
+    '''
+    A = float(np.ones((1,len(v)))*v.I*e.T)
+    B = float(e*v.I*e.T)
+    C = float(np.ones((1,len(v)))*v.I*np.ones((1,len(v))).T)
+    D = float(B*C-A*A)
+    g = 1/D*(B*np.ones((1,len(v)))- A*e)*v.I
+    h = 1/D*(C*e- A*np.ones((1,len(v))))*v.I
+    return g + h*r
+
+# 5.
+def calc_efficient_portfolios_stdev(e, v, rs):
+    sigmas=[]
+    for r in rs:
+        w = calc_min_variance_portfolio(e, v, r)
+        sigma = calc_portfolio_stdev(v, w)
+        print('r = %.4f, sigma = %.4f  w =' %(r, sigma), w)
+        sigmas +=[sigma]
+    return np.array(sigmas)
+
+# 6.
+def get_stock_prices_from_csv_files(symbols):
+    '''obtain a pandas.DataFrame containing historical stock prices for several 
+    stocks. The parameter symbols will be a list of stock symbols, and the 
+    return value will be a pandas.DataFrame containing the monthly stock prices
+    for each of those stock symbols, for the period of dates given in the CSV files.
+    '''
+    fs=[]
+    s_total=[]
+    for i in range(len(symbols)):
+        f=open(str(symbols[i])+'-monthly.csv', 'r')
+        fs +=[f]
+        f.readline()
+        dates = []
+        s = []
+        for line in f:
+            line = line.split(',')
+            dates += [line[0]]
+            s += [line[5]]            
+        s_total +=[s]
+    index = pd.date_range(dates[0], periods = len(dates), freq='MS')
+    s_table = pd.DataFrame(np.matrix(s_total).T, columns=[symbols], index=index)    
+    return s_table
+  # rebuild up 'Date', using the function given in our class.   use freq='MS'
+    
+# 7.
+def get_stock_returns_from_csv_files(symbols):
+    ''' returns a single pandas.DataFrame object containing the stock returns. 
+    '''
+    s_frame = get_stock_prices_from_csv_files(symbols)
+    for i in range(len(symbols)-1,-1,-1):
+        print(str(symbols[len(symbols)-i-1])+'-monthly.csv')
+        for j in range(len(s_frame)-1,0,-1):
+            s_frame.ix[j,i] = float('%.6f' %((float(s_frame.ix[j,i]) - float(s_frame.ix[j-1,i]))/float(s_frame.ix[j-1,i])))
+        s_frame.ix[0,i] = float('NaN') 
+    return s_frame
+
+# 8.
+def get_covariance_matrix(returns):
+    ''' generates a covariance matrix for the stock returns in returns. 
+    '''
+    ret_lists=[]
+    for i in range(len(returns.columns)):
+        print(str(returns.columns[i])+'-monthly.csv')
+        ret_list = []
+        for j in range(1,len(returns)):
+            ret_list += [returns.ix[j][i]]
+        ret_lists+=[ret_list]
+    result = pd.DataFrame(np.zeros((len(returns.columns),len(returns.columns))), columns=returns.columns, index=returns.columns)
+    for a in range(len(ret_lists)):
+        for b in range(len(ret_lists)):
+            result.ix[a][b] = covariance(ret_lists[a],ret_lists[b])
+    return result
+            
+
+
+# client code
+if __name__ == '__main__':  
+    # 1.
+    e = np.matrix([0.1, 0.11, 0.08])
+    w = np.matrix([1,1,1]) / 3
+    print(calc_portfolio_return(e, w))
+    # another example
+    e = np.matrix([0.12, 0.05, 0.09])
+    w = np.matrix([0.3, 0.4, 0.3])
+    print(calc_portfolio_return(e, w))
+    
+    # 2.
+    w = np.matrix([0.4, 0.3, 0.3])
+    v = np.matrix([[0.2, 0, 0], [0, 0.1, 0], [0, 0, 0.15]])
+    print(calc_portfolio_stdev(v, w))
+    # another example
+    w = np.matrix([0.3, 0.5, 0.2])
+    v = np.matrix([[0.2, 0.1, 0.5], [0.1, 0.1, 0.2], [0.5, 0.2, 0.3]])
+    print(calc_portfolio_stdev(v, w))
+    
+    # 3.
+    e = np.matrix([0.1, 0.11, 0.08])
+    v = np.matrix([[0.2, 0, 0], [0, 0.1, 0], [0, 0, 0.15]])
+    w = calc_global_min_variance_portfolio(v)
+    print(w)
+    print(calc_portfolio_return(e, w))
+    print(calc_portfolio_stdev(v, w))
+    
+    # second example
+    e = np.matrix([0.12, 0.09, 0.07])
+    v = np.matrix([[0.2, 0.1, 0.15], [0.1, 0.1, 0.4], [0.15, 0.4, 0.1]])
+    w = calc_global_min_variance_portfolio(v)
+    print(w)
+    print(calc_portfolio_return(e, w))
+    print(calc_portfolio_stdev(v, w))
+    
+    # 4.
+    # consider these three assets and the covariance matrix:    
+    e = np.matrix([0.1, 0.11, 0.08])
+    v = np.matrix([[0.2, 0, 0], [0, 0.1, 0], [0, 0, 0.15]])
+    # find minimum variance portfolio for r = 0.09
+    w = calc_min_variance_portfolio(e, v, 0.09)
+    print(w)
+    print(calc_portfolio_return(e, w))
+    print(calc_portfolio_stdev(v, w))
+    
+    # find minimum variance portfolio for r = 0.10
+    w = calc_min_variance_portfolio(e, v, 0.10)
+    print(w)
+    print(calc_portfolio_return(e, w))
+    print(calc_portfolio_stdev(v, w))
+    # find minimum variance portfolio for r = 0.11
+    w = calc_min_variance_portfolio(e, v, 0.11)
+    print(w)
+    print(calc_portfolio_return(e, w))
+    print(calc_portfolio_stdev(v, w))
+    
+    # 5.
+    e = np.matrix([0.1, 0.11, 0.08])
+    v = np.matrix([[0.2, 0, 0], [0, 0.1, 0], [0, 0, 0.15]])
+    rs = np.linspace(0.07, 0.12, 10) # generate 10 steps between 0.07 and 0.12
+    print(rs)
+    sigmas = calc_efficient_portfolios_stdev(e, v, rs)
+    print(sigmas)
+    
+    
+    # 6.
+    symbols = ['AAPL','DIS','GOOG','KO','WMT']
+    print(get_stock_prices_from_csv_files(symbols))
+    
+    # 7.
+    symbols = ['AAPL',  'DIS', 'GOOG', 'KO', 'WMT']
+    # note that the function also produces this small printout for debugging
+    returns = get_stock_returns_from_csv_files(symbols)
+    print(returns.head())
+    
+    # 8.
+    symbols = ['AAPL',  'DIS', 'GOOG', 'KO', 'WMT']
+    # note that the function also produces this small printout for debugging
+    returns = get_stock_returns_from_csv_files(symbols)
+    #print(returns)
+    covar = get_covariance_matrix(returns)
+    print(covar)
+    
+    symbols = ['AAPL',  'DIS', 'GOOG', 'KO', 'WMT']
+    returns = get_stock_returns_from_csv_files(symbols)
+    covar = get_covariance_matrix(returns)
+    # convert to np.matrix types:
+    v = np.matrix(covar)
+    e = np.matrix(returns.mean())
+    w = calc_global_min_variance_portfolio(v)
+    print(w)
+    print(calc_portfolio_return(e, w))
+    print(calc_portfolio_stdev(v, w))
