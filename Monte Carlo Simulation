@@ -1,0 +1,441 @@
+import random
+import math
+import statistics
+
+import math
+from scipy.stats import norm
+
+class BSOption:
+    def __init__(self, my_s, my_x, my_t, my_sigma, my_rf, my_div):
+        ''' Constructor of class BSOption.
+        s (the current stock price in dollars), 
+        x (the option strike price),
+        t (the option maturity time in years), 
+        sigma (the annualized standard deviation of returns), 
+        rf (the annualized risk free rate of return),
+        div (the annualized dividend rate; assume continuous dividends rate).
+        '''
+        self.s = my_s
+        self.x = my_x
+        self.t = my_t
+        self.sigma = my_sigma
+        self.rf = my_rf
+        self.div = my_div
+        
+    def __repr__(self):
+        ''' returns a string represents a BSOption.
+        '''
+        return 's = $%.2f, x = $%.2f, t= %.2f (years), sigma = %.3f, rf = %.3f, div = %.2f'\
+               %(self.s, self.x, self.t, self.sigma, self.rf, self.div)
+    
+    def d1(self):
+        '''calculates d1.
+        '''
+        return 1/self.sigma/math.sqrt(self.t) * (math.log(self.s/self.x) + (self.rf-self.div+self.sigma**2/2)*self.t)
+    
+    def d2(self):
+        '''calculates d2.
+        '''
+        return self.d1() - self.sigma*math.sqrt(self.t)
+    
+    def nd1(self):
+        '''calculates normal cumulative probability density of d1.
+        '''
+        return norm.cdf(self.d1())
+    
+    def nd2(self):
+        '''calculates normal cumulative probability density of d2.
+        '''
+        return norm.cdf(self.d2())
+        
+    def value(self):
+        '''calculates value for class BSOption.
+        '''
+        print('Cannot calculate value for base class BSOption.')
+        return 0
+    
+    def delta(self):
+        '''calculates delta for class BSOption.
+        '''
+        print('Cannot calculate delta for base class BSOption.')
+        return 0    
+    
+class BSEuroCallOption(BSOption):
+    ''' inherits from the base class BSOPtion and implements the pricing 
+        algorithm for a European-style call option.
+    '''
+    def __init__(self, my_s, my_x, my_t, my_sigma, my_rf, my_div):
+        ''' constructor of class BSEuroCallOption.
+        '''
+        BSOption.__init__(self, my_s, my_x, my_t, my_sigma, my_rf, my_div)
+        
+    def value(self):
+        ''' returns the value of a BSEuroCallOption.
+        '''
+        return self.nd1()*self.s*math.exp(-self.div*self.t)-self.nd2()*self.x*math.exp(-self.rf*self.t)
+    
+    def __repr__(self):
+        '''returns a string represents a BSEuroCallOption.
+        '''
+        return 'BSEuroCallOption, value = $%.2f,\nparameters = (s = $%.2f, x = $%.2f, t= %.2f (years), sigma = %.3f, rf = %.3f, div = %.2f' %(self.value(), self.s, self.x, self.t, self.sigma, self.rf, self.div)
+    
+    def delta(self):
+        ''' returns the delta of a BSEuroCallOption.
+        '''
+        return self.nd1()
+    
+class BSEuroPutOption(BSOption):
+    def __init__(self, my_s, my_x, my_t, my_sigma, my_rf, my_div):
+        ''' constructor of class BSEuroPutOption.
+        '''
+        BSOption.__init__(self, my_s, my_x, my_t, my_sigma, my_rf, my_div)
+        
+    def value(self):
+        ''' returns the value of a BSEuroPutOption.
+        '''
+        return -(1-self.nd1())*self.s*math.exp(-self.div*self.t)+(1-self.nd2())*self.x*math.exp(-self.rf*self.t)
+    
+    def __repr__(self):
+        '''returns a string represents a BSEuroPutOption.
+        '''
+        return 'BSEuroPutOption, value = $%.2f,\nparameters = (s = $%.2f, x = $%.2f, t= %.2f (years), sigma = %.3f, rf = %.3f, div = %.2f' %(self.value(), self.s, self.x, self.t, self.sigma, self.rf, self.div)
+    
+    def delta(self):
+        ''' returns the delta of a BSEuroPutOption.
+        '''        
+        return self.nd1()-1
+    
+    
+def generate_option_value_table(s, x, t, sigma, rf, div):
+    '''generate a printout to illustrate the change in option prices with respect to the change in the underlying stock price.
+    '''
+    print('Change in option values w.r.t. change in stock price:')
+    print('%-15s%-15s%-15s%-15s%-15s'  %('price', 'call value', 'put value', 'call delta', 'put delta'))
+    for i in range(21):
+        price = s - 10 + i
+        call = BSEuroCallOption(price, x, t, sigma, rf, div)
+        put = BSEuroPutOption(price, x, t, sigma, rf, div)        
+        call_value = call.value()
+        put_value = put.value()
+        call_delta = call.delta()
+        put_delta = put.delta()
+        print('$%-14.2f$%-14.2f$%-14.2f%-14.4f%-14.4f' %(price, call_value, put_value, call_delta, put_delta))
+
+def calculate_implied_volatility(option, value):
+    ''' calculates the implied volatility of an observed option. 
+    '''
+    low_sigma = 0
+    high_sigma = 1
+    #mid_sigma = 0.5
+    #option.sigma = mid_sigma
+    #new_option = BSOption(option.s, option.x, option.t, mid_sigma, option.rf, option.div)
+    while abs(option.value() - value) > 0.005:
+        print('sigma=%.6f, value=%.6f' %(option.sigma, option.value()))
+        if option.value() < value:
+            low_sigma = option.sigma
+            option.sigma = (high_sigma + low_sigma)/2
+        else:
+            high_sigma = option.sigma
+            option.sigma = (high_sigma + low_sigma)/2
+        #new_option = BSOption(option.s, option.x, option.t, mid_sigma, option.rf, option.div)
+        #option.sigma = mid_sigma
+    #print('sigma=%.6f, value=%.6f' %(option.sigma, option.value()))   
+    #if option.value() < value:
+        #low_sigma = option.sigma
+        #option.sigma = (high_sigma + low_sigma)/2
+    #else:
+        #high_sigma = option.sigma
+        #option.sigma = (high_sigma + low_sigma)/2
+    #print('sigma=%.6f, value=%.6f' %(option.sigma, option.value()))
+    #if option.value() < value:
+        #low_sigma = option.sigma
+        #option.sigma = (high_sigma + low_sigma)/2
+    #else:
+        #high_sigma = option.sigma
+        #option.sigma = (high_sigma + low_sigma)/2    
+    return option.sigma
+    
+    
+
+class MCStockOption:
+    def __init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials):
+        ''' Constructor of class MSStockOption.
+        s, which is the initial stock price
+        x, which is the option¡¯s exercise price
+        r, which is the (expected) mean annual rate of return on the underlying stock
+        sigma, which is the annual standard deviation of returns on the underlying stock
+        t, which is the time to maturity for the option
+        nsteps, which is the number of discrete time steps with which to evaluate the option
+        ntrials, which is the number of trials to run with this option.
+        '''
+        self.s = my_s
+        self.x = my_x
+        self.r = my_r
+        self.sigma = my_sigma
+        self.t = my_t
+        self.nsteps = my_nsteps
+        self.ntrials = my_ntrials
+        
+    def __repr__(self):
+        ''' returns a string represents a MSStockOption.
+        '''
+        return 'MCStockOption, s=%.2f, x=%.2f, r=%.2f, sigma=%.3f, t=%.2f, nsteps=%d, ntrials=%d'\
+               %(self.s, self.x, self.r, self.sigma, self.t, self.nsteps, self.ntrials)
+    
+    def generate_stock_prices(self):
+        ''' generates and return a list containing simulated stock prices over the course of this option¡¯s lifetime t. 
+        '''
+        result = [self.s]*(self.nsteps+1)
+        dt = self.t/self.nsteps
+        for i in range (self.nsteps+1):
+            z = random.gauss(0, 1) 
+            er = (self.r - self.sigma**2/2) * dt + z*self.sigma*math.sqrt(dt)
+            if i >0:
+                result[i] = result[i-1]*math.exp(er)
+        return result
+    
+    def value(self):
+        '''returns the value of the option.
+        '''
+        print('Base class MCStockOption has no concrete implementation of .value().')
+        self.mean = statistics.mean(trials)
+        self.stdev = statistics.pstdev(trials)          
+        return 0 
+
+    def stderr(self):
+        '''returns the standard error of this option¡¯s value.
+        '''
+        if 'stdev' in dir(self):
+            return self.stdev / math.sqrt(self.ntrials)        
+        return 0
+    
+    
+    def value(self):
+        '''returns the value of the option.
+        '''
+        print('Base class MCStockOption has no concrete implementation of .value().')
+        self.mean = statistics.mean(trials)
+        self.stdev = statistics.pstdev(trials)          
+        return 0 
+
+    def stderr(self):
+        '''returns the standard error of this option¡¯s value.
+        '''
+        if 'stdev' in dir(self):
+            return self.stdev / math.sqrt(self.ntrials)        
+        return 0
+    
+class MCEuroCallOption(MCStockOption):
+    def __init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials):
+        ''' Constructor of class MCEuroCallOption.
+        s, which is the initial stock price
+        x, which is the option¡¯s exercise price
+        r, which is the (expected) mean annual rate of return on the underlying stock
+        sigma, which is the annual standard deviation of returns on the underlying stock
+        t, which is the time to maturity for the option
+        nsteps, which is the number of discrete time steps with which to evaluate the option
+        ntrials, which is the number of trials to run with this option.
+        '''
+        MCStockOption.__init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials)
+        
+    def __repr__(self):
+        ''' returns a string represents a MCEuroCallOption.
+        '''
+        return 'MCEuroCallOption, s=%.2f, x=%.2f, r=%.2f, sigma=%.3f, t=%.2f, nsteps=%d, ntrials=%d'\
+               %(self.s, self.x, self.r, self.sigma, self.t, self.nsteps, self.ntrials)
+    
+    def value(self):
+        ''' returns value of MCEuroCallOption.
+        '''
+        c_value = []
+        trials= [self.generate_stock_prices()[-1] for i in range(self.ntrials)]
+        for s in trials:
+            c_value += [max(s - self.x, 0)*math.exp(-self.r*self.t)]
+        self.mean = statistics.mean(c_value)
+        self.stdev = statistics.pstdev(c_value)         
+        return self.mean
+    
+    def stderr(self):
+        ''' returns stderr of MCEuroCallOption.
+        '''    
+        return MCStockOption.stderr(self)
+   
+class MCEuroPutOption (MCStockOption):
+    def __init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials):
+        ''' Constructor of class MCEuroPutOption.
+            s, which is the initial stock price
+            x, which is the option¡¯s exercise price
+            r, which is the (expected) mean annual rate of return on the underlying stock
+            sigma, which is the annual standard deviation of returns on the underlying stock
+            t, which is the time to maturity for the option
+            nsteps, which is the number of discrete time steps with which to evaluate the option
+            ntrials, which is the number of trials to run with this option.
+        '''
+        MCStockOption.__init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials)
+            
+    def __repr__(self):
+        ''' returns a string represents a MCEuroPutOption.
+        '''
+        return 'MCEuroPutOption, s=%.2f, x=%.2f, r=%.2f, sigma=%.3f, t=%.2f, nsteps=%d, ntrials=%d'\
+               %(self.s, self.x, self.r, self.sigma, self.t, self.nsteps, self.ntrials)   
+    
+    def value(self):
+        ''' returns value of MCEuroPutOption.
+        '''
+        c_value = []
+        trials= [self.generate_stock_prices()[-1] for i in range(self.ntrials)]
+        for s in trials:
+            c_value += [max(self.x - s, 0)*math.exp(-self.r*self.t)]
+        self.mean = statistics.mean(c_value)
+        self.stdev = statistics.pstdev(c_value)         
+        return self.mean
+    
+    def stderr(self):
+        ''' returns stderr of MCEuroPutOption.
+        '''    
+        return MCStockOption.stderr(self)    
+        
+    
+class MCAsianCallOption(MCStockOption):
+    def __init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials):
+        ''' Constructor of class MCAsianCallOption.
+            s, which is the initial stock price
+            x, which is the option¡¯s exercise price
+            r, which is the (expected) mean annual rate of return on the underlying stock
+            sigma, which is the annual standard deviation of returns on the underlying stock
+            t, which is the time to maturity for the option
+            nsteps, which is the number of discrete time steps with which to evaluate the option
+            ntrials, which is the number of trials to run with this option.
+        '''
+        MCStockOption.__init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials)
+            
+    def __repr__(self):
+        ''' returns a string represents a MCAsianCallOption.
+        '''
+        return 'MCAsianCallOption, s=%.2f, x=%.2f, r=%.2f, sigma=%.3f, t=%.2f, nsteps=%d, ntrials=%d'\
+               %(self.s, self.x, self.r, self.sigma, self.t, self.nsteps, self.ntrials)
+    
+    def value(self):
+        ''' returns value of MCAsianCallOption.
+        '''
+        c_value = []
+        trials= [statistics.mean(self.generate_stock_prices()) for i in range(self.ntrials)]
+        for s in trials:
+            c_value += [max(s - self.x, 0)*math.exp(-self.r*self.t)]
+        self.mean = statistics.mean(c_value)
+        self.stdev = statistics.pstdev(c_value)         
+        return self.mean
+    
+    def stderr(self):
+        ''' returns stderr of MCAsianCallOption.
+        '''    
+        return MCStockOption.stderr(self) 
+
+class MCAsianPutOption(MCStockOption):
+    def __init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials):
+        ''' Constructor of class MCAsianPutOption.
+            s, which is the initial stock price
+            x, which is the option¡¯s exercise price
+            r, which is the (expected) mean annual rate of return on the underlying stock
+            sigma, which is the annual standard deviation of returns on the underlying stock
+            t, which is the time to maturity for the option
+            nsteps, which is the number of discrete time steps with which to evaluate the option
+            ntrials, which is the number of trials to run with this option.
+        '''
+        MCStockOption.__init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials)
+            
+    def __repr__(self):
+        ''' returns a string represents a MCAsianPutOption.
+        '''
+        return 'MCAsianPutOption, s=%.2f, x=%.2f, r=%.2f, sigma=%.3f, t=%.2f, nsteps=%d, ntrials=%d'\
+               %(self.s, self.x, self.r, self.sigma, self.t, self.nsteps, self.ntrials)
+    
+    def value(self):
+        ''' returns value of MCAsianPutOption.
+        '''
+        c_value = []
+        trials= [statistics.mean(self.generate_stock_prices()) for i in range(self.ntrials)]
+        for s in trials:
+            c_value += [max(self.x - s, 0)*math.exp(-self.r*self.t)]
+        self.mean = statistics.mean(c_value)
+        self.stdev = statistics.pstdev(c_value)         
+        return self.mean
+    
+    def stderr(self):
+        ''' returns stderr of MCAsianPutOption.
+        '''    
+        return MCStockOption.stderr(self)     
+    
+    
+    
+class MCLookbackCallOption(MCStockOption):
+    def __init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials):
+        ''' Constructor of class MCLookbackCallOption.
+            s, which is the initial stock price
+            x, which is the option¡¯s exercise price
+            r, which is the (expected) mean annual rate of return on the underlying stock
+            sigma, which is the annual standard deviation of returns on the underlying stock
+            t, which is the time to maturity for the option
+            nsteps, which is the number of discrete time steps with which to evaluate the option
+            ntrials, which is the number of trials to run with this option.
+        '''
+        MCStockOption.__init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials)
+            
+    def __repr__(self):
+        ''' returns a string represents a MCLookbackCallOption.
+        '''
+        return 'MCLookbackCallOption, s=%.2f, x=%.2f, r=%.2f, sigma=%.3f, t=%.2f, nsteps=%d, ntrials=%d'\
+               %(self.s, self.x, self.r, self.sigma, self.t, self.nsteps, self.ntrials)
+    
+    def value(self):
+        ''' returns value of MCLookbackCallOption.
+        '''
+        c_value = []
+        trials= [max(self.generate_stock_prices()) for i in range(self.ntrials)]
+        for s in trials:
+            c_value += [max(s - self.x, 0)*math.exp(-self.r*self.t)]
+        self.mean = statistics.mean(c_value)
+        self.stdev = statistics.pstdev(c_value)         
+        return self.mean
+    
+    def stderr(self):
+        ''' returns stderr of MCLookbackCallOption.
+        '''    
+        return MCStockOption.stderr(self)     
+    
+class MCLookbackPutOption(MCStockOption):
+    def __init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials):
+        ''' Constructor of class MCLookbackPutOption.
+            s, which is the initial stock price
+            x, which is the option¡¯s exercise price
+            r, which is the (expected) mean annual rate of return on the underlying stock
+            sigma, which is the annual standard deviation of returns on the underlying stock
+            t, which is the time to maturity for the option
+            nsteps, which is the number of discrete time steps with which to evaluate the option
+            ntrials, which is the number of trials to run with this option.
+        '''
+        MCStockOption.__init__(self, my_s, my_x, my_r, my_sigma, my_t, my_nsteps, my_ntrials)
+            
+    def __repr__(self):
+        ''' returns a string represents a MCLookbackPutOption.
+        '''
+        return 'MCLookbackPutOption, s=%.2f, x=%.2f, r=%.2f, sigma=%.3f, t=%.2f, nsteps=%d, ntrials=%d'\
+               %(self.s, self.x, self.r, self.sigma, self.t, self.nsteps, self.ntrials)
+    
+    def value(self):
+        ''' returns value of MCLookbackPutOption.
+        '''
+        c_value = []
+        trials= [min(self.generate_stock_prices()) for i in range(self.ntrials)]
+        for s in trials:
+            c_value += [max(self.x - s, 0)*math.exp(-self.r*self.t)]
+        self.mean = statistics.mean(c_value)
+        self.stdev = statistics.pstdev(c_value)         
+        return self.mean
+    
+    def stderr(self):
+        ''' returns stderr of MCLookbackPutOption.
+        '''    
+        return MCStockOption.stderr(self)         
+    
+    
